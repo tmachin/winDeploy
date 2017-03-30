@@ -1,0 +1,17 @@
+list disk
+
+select disk 0
+
+clean
+ 
+create partition primary 
+
+select partition 1 
+
+active 
+
+format quick 
+
+assign letter=C
+
+exit

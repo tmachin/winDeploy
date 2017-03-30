@@ -1,0 +1,2 @@
+powershell.exe -ExecutionPolicy Bypass -command "Start-Process powershell.exe c:\temp\deployment\newuser\newUserSetup.ps1 -Verb runAs"
+del "c:\users\%username%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\newUserSetup.lnk"

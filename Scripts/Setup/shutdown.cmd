@@ -1,0 +1,1 @@
+powershell.exe -ExecutionPolicy Bypass -file "C:\Temp\Deployment\setup\shutdown.ps1"

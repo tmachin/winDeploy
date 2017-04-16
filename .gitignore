@@ -1,5 +1,6 @@
 *.wim
 Unattend/**
-
+*.rtf
 DeploymentAutomation_2_2.rtf
 Tools/**
+*.msi

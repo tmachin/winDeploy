@@ -1,10 +1,10 @@
 #####################################
 # File Name: WindowsSetup.ps1 v2_2
 # Author: Nigel Hughes, Thomas Machin
-# Date Created: March 29 2017
+# Date Created: April 16 2017
 # Purpose: To automate several parts of the configuration process after having logged on for the first time
 #####################################
-$scriptVer = "v2.2 March 29 2017";
+$scriptVer = "v2.2.1 April 16 2017";
 
 $CSVFileName = ' ';
 $mapTarget = ' ';
@@ -24,31 +24,38 @@ Function LogWrite
 
    Add-content $Logfile -value $logstring
 }
-<#
-function Test-FileLock {
-  param (
-    [parameter(Mandatory=$true)][string]$Path
-  )
 
-  $oFile = New-Object System.IO.FileInfo $Path
-
-  if ((Test-Path -Path $Path) -eq $false) {
-    return $false
-  }
-
-  try {
-    $oStream = $oFile.Open([System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
-
-    if ($oStream) {
-      $oStream.Close()
-    }
-    $false
-  } catch {
-    # file is locked by a process.
-    return $true
-  }
+function Create-User ($userName, $userPW, $userGroup) {  
+    New-LocalUser -Name $username -Password $userPW -PasswordNeverExpires
+    if (Get-LocalGroup $userGroup){
+        Add-LocalGroupMember -Group $userGroup -Member $userName
+    }  
 }
-#>
+
+function Test-UserCreation ($username,$userGroup) {
+    $pw = ConvertTo-SecureString "Test" -AsPlainText -Force
+    Create-User $username $pw $userGroup;
+
+    if (Get-LocalUser $username){
+        write-host "$username Created Succesfully";
+    } else {
+        Write-Host "$username does not exist.";
+    }
+    if (Get-LocalGroupMember -group $userGroup -member $username){
+        write-host "$username added to $userGroup Successfully";
+    } else {
+        write-Host "$Username is not a member of $userGroup";
+    }
+    Write-Host "Removing test user $userName";
+    Remove-LocalUser $username
+    if (Get-LocalUser $username){
+        write-host "$username was not removed successfully";
+    } else {
+        Write-Host "$username was removed.";
+    }
+
+}
+
 function Access-Excel {
     ########## CREATE LOCK FILE ##########
     $lock = test-path "Z:\Excel Files\excellock.lock"
@@ -62,8 +69,7 @@ function Access-Excel {
     Write-Host "File successfully locked";
             
     $objCSV = Import-CSV $CSVPath;
-    $rowMax = ($objCSV.Rows).count;
-    $rowNum = 1;
+    $rowMax = ($objCSV.Rows).count;    
 
     ########## PARSE FOR ID ###########    
     $log = "Parsing through CSV Sheet"
@@ -72,13 +78,16 @@ function Access-Excel {
     Write-Host $log
     $SN = gwmi win32_bios | Select –ExpandProperty SerialNumber;
     $CSVIndex = 0;
+    #checks each row in CSV file. If row contains a serial that matches, then the script grabs the detail from that row. Or, if the 
+    #script encounters an empty serial field, it will grab the information from that row. 
+    #WARNING - If the CSV contains duplicate serials, the values from the first occurance will be used
+    #WARNING - If the CSV contains an empty cell in the Serial column, it will use that row and not search further for matches.
     foreach ($row in $objCSV){       
         if ($SN -eq $row.Serial) {
             $PCName = $row.PCName;
             $UserName = $row.UserName;
-            $UserPW = $row.UserPW;
-            $EncryptPW = $row.EncryptPW;
-            $currentRow = ($rowNum+$i)
+            $UserPW = ConvertTo-SecureString $row.UserPW -AsPlainText -Force;
+            $EncryptPW = $row.EncryptPW;            
             $log = "Serial Match:$SN has been found in the excel file, name will remain $PCName";
             LogWrite $log ;
             Write-Host $log;
@@ -87,7 +96,7 @@ function Access-Excel {
         } elseif ($row.serial -eq ""){            
             $PCName = $row.PCName;
             $UserName = $row.UserName;
-            $UserPW = $row.UserPW;
+            $UserPW = ConvertTo-SecureString $row.UserPW -AsPlainText -Force;
             $EncryptPW = $row.EncryptPW;                   
             $CSVRow = $CSVIndex;            
             $row.Serial = $SN;
@@ -101,14 +110,13 @@ function Access-Excel {
         $CSVIndex++;       
         
     }
+
+    
+    
     ##Create User###
-    $Group = 'Administrators'
-
-    Write-Host "Creating new local user $UserName."
-    & NET USER $UserName $UserPW /add /y /expires:never
-    Write-Host "Adding local user $UserName to $Group."
-    & NET LOCALGROUP 'Administrators' $UserName /add
-
+    $group = 'Administrators'
+    Create-User ($userName, $userPW, $group);
+    
     #Make Secure String from encpassword info
     $SecureString = ConvertTo-SecureString $EncryptPW -AsPlainText -Force
     Enable-BitLocker -MountPoint C: -Pin $SecureString -TpmAndPinProtector -EncryptionMethod XtsAes256 -SkipHardwareTest -UsedSpaceOnly

@@ -56,6 +56,35 @@ function Test-UserCreation ($username,$userGroup) {
 
 }
 
+function TestConnectionToServer ($server){
+    $gateway = (Get-wmiObject Win32_networkAdapterConfiguration | ?{$_.IPEnabled}).DefaultIPGateway
+    if (test-connection -computername $server -quiet){
+        Write-Host "Connection to target computer can be made.";
+        return $true;
+    } else {
+        if (!($gateway)){
+            write-host "No internet Connection available.";
+        } else {
+            write-host "Unable to ping host computer.";
+        }
+        return $false;
+    }
+}
+
+function Test-TestConnectionToServer(){
+    if(TestConnectionToServer "localhost"){
+        if (!(TestConnectiontoServer "fake.domain")){
+            write-host "TestConnectionToServer Functioned Correctly";
+            return $true;
+        } else {
+            write-host "TestConnectionToServer Failed to catch error on unreachable target"; 
+            return $false;
+        }
+    }   
+
+}
+
+
 function Access-Excel {
     ########## CREATE LOCK FILE ##########
     $lock = test-path "Z:\Excel Files\excellock.lock"
@@ -175,12 +204,15 @@ $log = "File extensions set to visible"
 Write-Host $log
 LogWrite $log
 
-########## MAP TO SHARED EXCEL ##########
-$gateway = (Get-wmiObject Win32_networkAdapterConfiguration | ?{$_.IPEnabled}).DefaultIPGateway
-while (!($gateway)) {
-        Write-Host "Ethernet is Not Plugged in, Please plug in the ethernet to continue"
+########## MAP TO SHARED CSV ##########
+#test Network Connection by checking to see if a gateway exists
+
+
+$connectionStatus = TestConnectionToServer $mapTarget;
+while (!($connectionStatus)) {
+        Write-Host "Ethernet is Not Plugged in, or Target Computer Unreachable. Please plug in the ethernet to continue"
         Read-Host -Prompt "Press Enter to continue"
-        $gateway = (Get-wmiObject Win32_networkAdapterConfiguration | ?{$_.IPEnabled}).DefaultIPGateway
+        $connectionStatus = TestConnectionToServer $mapTarget;
 }
 try {
     $PWord = ConvertTo-SecureString -String $mapPW -AsPlainText -Force;
@@ -189,6 +221,7 @@ try {
 } Catch { 
     write-host "Network Previously Mapped"
 }
+
 LogWrite "Network Drive Mapped"
 Write-Host "Network Drive Mapped"
 

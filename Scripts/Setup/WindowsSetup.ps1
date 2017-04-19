@@ -87,7 +87,7 @@ function Access-Excel {
             $PCName = $row.PCName;
             $UserName = $row.UserName;
             $UserPW = ConvertTo-SecureString $row.UserPW -AsPlainText -Force;
-            $EncryptPW = $row.EncryptPW;            
+            $EncryptPW = ConvertTo-SecureString $row.EncryptPW -AsPlainText -Force;$row.EncryptPW;            
             $log = "Serial Match:$SN has been found in the excel file, name will remain $PCName";
             LogWrite $log ;
             Write-Host $log;
@@ -97,7 +97,7 @@ function Access-Excel {
             $PCName = $row.PCName;
             $UserName = $row.UserName;
             $UserPW = ConvertTo-SecureString $row.UserPW -AsPlainText -Force;
-            $EncryptPW = $row.EncryptPW;                   
+            $EncryptPW = ConvertTo-SecureString $row.EncryptPW -AsPlainText -Force;
             $CSVRow = $CSVIndex;            
             $row.Serial = $SN;
             write-host "Empty Serial Found on Row $CSVRow";
@@ -117,9 +117,9 @@ function Access-Excel {
     $group = 'Administrators'
     Create-User ($userName, $userPW, $group);
     
-    #Make Secure String from encpassword info
-    $SecureString = ConvertTo-SecureString $EncryptPW -AsPlainText -Force
-    Enable-BitLocker -MountPoint C: -Pin $SecureString -TpmAndPinProtector -EncryptionMethod XtsAes256 -SkipHardwareTest -UsedSpaceOnly
+    
+    #Enable bitlocker using the encryption password from the CSV
+    Enable-BitLocker -MountPoint C: -Pin $EncryptPW -TpmAndPinProtector -EncryptionMethod XtsAes256 -SkipHardwareTest -UsedSpaceOnly
     Add-BitLockerKeyProtector -MountPoint "C:" -RecoveryPasswordProtector
     $BitLocker = Get-BitLockerVolume -MountPoint C:
     foreach ($a in $BitLocker.KeyProtector){
